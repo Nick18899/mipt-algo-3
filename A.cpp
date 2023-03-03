@@ -1,156 +1,62 @@
+#include <cmath>
 #include <iostream>
+#include <set>
+#include <vector>
 
-class TreapSet {
-  struct Node {
-    Node(long long x1, long long y1) {
-      x = x1;
-      y = y1;
-      parent = nullptr;
-      left = nullptr;
-      right = nullptr;
-    }
-
-    long long x;
-    long long y;
-    Node* parent;
-    Node* left;
-    Node* right;
-  };
-
- public:
-  TreapSet() : root_(nullptr) {}
-
-  ~TreapSet() { Clear(root_); }
-
-  void CalcParentMin(Node* node) {
-    node->parent = parent_;
-    parent_->right = node;
-    parent_ = node;
-  }
-
-  void CalcParentMax(Node* node, long long value) {
-    Node* cp = parent_;
-    while ((cp != nullptr) && (cp->y > value)) {
-      cp = cp->parent;
-    }
-    if (cp == nullptr) {
-      node->parent = nullptr;
-      root_->parent = node;
-      node->left = root_;
-      root_ = node;
-    } else {
-      Node* right = cp->right;
-      right->parent = node;
-      node->parent = cp;
-      node->left = right;
-      cp->right = node;
-    }
-    parent_ = node;
-  }
-
-  void Insert(long long value, long long y) {
-    Node* node = new Node(value, y);
-    if (root_ == nullptr) {
-      node->parent = nullptr;
-      root_ = node;
-      parent_ = node;
-    } else {
-      if (parent_->y < y) {
-        CalcParentMin(node);
-      } else {
-        CalcParentMax(node, y);
-      }
-    }
-  }
-
-  void DisplayTree() { return DisplayTree(root_); }
-
- private:
-  std::pair<Node*, Node*> Split(Node* node, long long key) {
-    if (node == nullptr) {
-      return {nullptr, nullptr};
-    }
-    if (key >= node->x) {
-      std::pair<TreapSet::Node*, TreapSet::Node*> p = Split(node->right, key);
-      TreapSet::Node* left = p.first;
-      TreapSet::Node* right = p.second;
-      node->right = left;
-      return {node, right};
-    }
-    std::pair<TreapSet::Node*, TreapSet::Node*> p = Split(node->left, key);
-    TreapSet::Node* left = p.first;
-    TreapSet::Node* right = p.second;
-    node->left = right;
-    return {left, node};
-  }
-
-  Node* Merge(Node* first, Node* second) {
-    if (first == nullptr) {
-      return second;
-    }
-    if (second == nullptr) {
-      return first;
-    }
-    if (first->y <= second->y) {
-      first->right = Merge(first->right, second);
-      first->right->parent = first;
-      return first;
-    }
-    second->left = Merge(first, second->left);
-    second->left->parent = second;
-    return second;
-  }
-
-  static long long GetParent(Node* node) {
-    if (node->parent == nullptr) {
-      return 0;
-    }
-    return node->parent->x;
-  }
-
-  void Clear(Node* node) {
-    if (node == nullptr) {
-      return;
-    }
-    Clear(node->left);
-    Clear(node->right);
-    delete node;
-  }
-
-  void DisplayTree(Node* node) {
-    if (node != nullptr) {
-      DisplayTree(node->left);
-      long long left = 0;
-      long long right = 0;
-      long long parent = GetParent(node);
-      if (node->left != nullptr) {
-        left = node->left->x;
-      }
-      if (node->right != nullptr) {
-        right = node->right->x;
-      }
-      std::cout << parent << ' ' << left << " " << right << '\n';
-      DisplayTree(node->right);
-    }
-  }
-
-  Node* root_;
-  Node* parent_{nullptr};
-};
+const long long kMaxVal = 2009000999;
 
 int main() {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
   std::cout.tie(nullptr);
-  TreapSet* treap = new TreapSet();
-  long long n;
-  std::cin >> n;
-  long long x, y;
-  for (long long i = 0; i < n; ++i) {
-    std::cin >> x >> y;
-    treap->Insert(i + 1, y);
+  long long k, n, m, a, b, c;
+  std::cin >> k;
+  std::vector<std::vector<std::vector<std::pair<long long, long long>>>> graph;
+  long long start;
+  std::vector<long long> starts;
+  for (long long p = 0; p < k; ++p) {
+    std::cin >> n >> m;
+    std::vector<std::vector<std::pair<long long, long long>>> vec(n);
+    for (long long j = 0; j < m; ++j) {
+      std::cin >> a >> b >> c;
+      vec[a].emplace_back(b, c);
+      vec[b].emplace_back(a, c);
+    }
+    graph.push_back(vec);
+    std::cin >> start;
+    starts.push_back(start);
   }
-  std::cout << "YES" << std::endl;
-  treap->DisplayTree();
-  delete treap;
+  std::vector<std::vector<long long>> distances;
+  for (long long p = 0; p < k; ++p) {
+    distances.emplace_back(graph[p].size(), kMaxVal);
+    std::set<std::pair<long long, long long>> queue;
+    start = starts[p];
+    distances[p][start] = 0;
+    queue.insert({0, start});
+    while (!queue.empty()) {
+      long long top = queue.begin()->second;
+      queue.erase(queue.begin());
+      for (size_t j = 0; j < graph[p][top].size(); ++j) {
+        long long to = graph[p][top][j].first;
+        long long length = graph[p][top][j].second;
+        if (distances[p][top] + length < distances[p][to]) {
+          if (queue.find({distances[p][to], to}) != queue.end()) {
+            queue.erase({distances[p][to], to});
+          }
+          distances[p][to] = distances[p][top] + length;
+          queue.insert({distances[p][to], to});
+        }
+      }
+    }
+  }
+  for (auto& distance : distances) {
+    for (size_t j = 0; j < distance.size(); ++j) {
+      if (j != distance.size() - 1) {
+        std::cout << distance[j] << " ";
+      } else {
+        std::cout << distance[j] << '\n';
+      }
+    }
+  }
+  return 0;
 }
