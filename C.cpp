@@ -1,226 +1,142 @@
+#include <algorithm>
 #include <iostream>
+#include <set>
+#include <vector>
+const long long kMaxSize = INT64_MAX;
 
-#include <cmath>
+struct Vec {
+  long long distance;
+  long long id;
+  long long time;
 
-#include <string>
+  Vec(long long d, long long id, long long tm)
+      : distance(d), id(id), time(tm) {}
 
-class AVLTree {
- public:
-  struct Node {
-    Node* left{nullptr};
-    Node* right{nullptr};
-    std::pair<long long, std::string> value;
-    unsigned char height{0};
-  };
-
-  AVLTree() : root_(nullptr) {}
-
-  void Insert(long long value, std::string sec) {
-    root_ = Insert(root_, value, sec);
-  }
-
-  ~AVLTree() { Clear(root_); }
-
-  long long Height() { return (long long)root_->height; }
-
-  void Clear() {
-    Clear(root_);
-    root_ = nullptr;
-  }
-
-  std::string FindValueByKey(long long value) {
-    return FindValueByKey(root_, value);
-  }
-
-  bool BFindByValue(long long value) { return BFindByValue(root_, value); }
-
-  void Erase(long long value) { root_ = Erase(root_, value); }
-
- private:
-  static Node* Erase(Node* node, long long value) {
-    if (node == nullptr) {
-      return node;
-    }
-    if (node->value.first == value) {
-      Node* left = node->left;
-      Node* right = node->right;
-      delete node;
-      if (right == nullptr) {
-        return FixBalance(left);
-      }
-      Node* min = FindMin(right);
-      min->right = UnlinkMin(right);
-      min->left = left;
-      return FixBalance(min);
-    }
-    if (value > node->value.first) {
-      node->right = Erase(node->right, value);
-    } else {
-      node->left = Erase(node->left, value);
-    }
-    return FixBalance(node);
-  }
-
-  static Node* FindMin(Node* node) {
-    if (node->left == nullptr) {
-      return node;
-    }
-    return FindMin(node->left);
-  }
-
-  static Node* UnlinkMin(Node* node) {
-    if (node->left == nullptr) {
-      return node->right;
-    }
-    node->left = UnlinkMin(node->left);
-    return FixBalance(node);
-  }
-
-  static bool BFindByValue(Node* node, long long value) {
-    if (node == nullptr) {
-      std::cout << "false";
-      return false;
-    }
-    if (node->value.first == value) {
-      return true;
-    }
-    if (value < node->value.first) {
-      return BFindByValue(node->left, value);
-    }
-    return BFindByValue(node->right, value);
-  }
-
-  static std::string FindValueByKey(Node* node, long long value) {
-    if (node == nullptr) {
-      return "-1";
-    }
-    if (node->value.first == value) {
-      return node->value.second;
-    }
-    if (value < node->value.first) {
-      return FindValueByKey(node->left, value);
-    }
-    return FindValueByKey(node->right, value);
-  }
-
-  static void Clear(Node* node) {
-    if (node != nullptr) {
-      if (node->left != nullptr) {
-        Clear(node->left);
-      }
-      if (node->right != nullptr) {
-        Clear(node->right);
-      }
-      delete node;
-    }
-  }
-
-  static Node* Insert(Node* node, long long value, std::string sec) {
-    if (node == nullptr) {
-      Node* new_node = new Node;
-      new_node->value.first = value;
-      new_node->value.second = sec;
-      return new_node;
-    }
-    if (value <= node->value.first) {
-      node->left = Insert(node->left, value, sec);
-    } else {
-      node->right = Insert(node->right, value, sec);
-    }
-    return FixBalance(node);
-  }
-
-  static long long Height(Node* node) {
-    return node == nullptr ? 0 : static_cast<long long>(node->height);
-  }
-
-  static long long BalanceFactor(Node* node) {
-    return node == nullptr ? 0 : Height(node->right) - Height(node->left);
-  }
-
-  static void CalcHeight(Node* node) {
-    if (node == nullptr) {
-      return;
-    }
-    node->height = std::max(Height(node->left), Height(node->right)) + 1;
-  }
-
-  static Node* RightRotate(Node* p) {
-    Node* q = p->left;
-    p->left = q->right;
-    q->right = p;
-    CalcHeight(p);
-    CalcHeight(q);
-    return q;
-  }
-
-  static Node* LeftRotate(Node* q) {
-    Node* p = q->right;
-    q->right = p->left;
-    p->left = q;
-    CalcHeight(q);
-    CalcHeight(p);
-    return p;
-  }
-
-  static Node* FixBalance(Node* node) {
-    CalcHeight(node);
-    if (BalanceFactor(node) == 2) {
-      if (BalanceFactor(node->right) == -1) {
-        node->right = RightRotate(node->right);
-      }
-      return LeftRotate(node);
-    }
-    if (BalanceFactor(node) == -2) {
-      if (BalanceFactor(node->left) == 1) {
-        node->left = LeftRotate(node->left);
-      }
-      return RightRotate(node);
-    }
-    return node;
-  }
-
-  Node* root_;
+  Vec() : distance(0), id(0), time(0) {}
 };
 
-long long StringToNumber(std::string& s, const long long* arr) {
-  long long hash_code = 0;
-  for (long long i = 0; i < (long long)s.size(); ++i) {
-    hash_code = (hash_code + (s[i] - 'a' + 1) * arr[i]) % (1000000000 + 7);
+struct Edge {
+  long long end;
+  long long cost;
+  long long time;
+};
+
+bool operator<(const Vec& edge1, const Vec& edge2) {
+  if (edge1.distance == edge2.distance) {
+    if (edge1.time == edge2.time) {
+      return edge1.id < edge2.id;
+    }
+    return edge1.time < edge2.time;
   }
-  return hash_code;
+  return edge1.distance < edge2.distance;
+}
+
+bool operator>(const Vec& edge1, const Vec& edge2) { return edge2 < edge1; }
+
+bool operator==(const Vec& edge1, const Vec& edge2) {
+  if (edge1.distance == edge2.distance) {
+    if (edge1.id == edge2.id) {
+      return edge1.time == edge2.time;
+    }
+  }
+  return false;
+}
+
+std::pair<long long, long long> DijkstraRes(
+    std::vector<std::vector<long long>> dist, long long t, long long n) {
+  std::pair<long long, long long> res(t, dist[n - 1][t]);
+  for (long long time_it = 0; time_it <= t; time_it++) {
+    if (dist[n - 1][time_it] < res.second) {
+      res = {time_it, dist[n - 1][time_it]};
+    }
+  }
+  return res;
+}
+
+std::pair<long long, long long> Dijkstra(
+    std::vector<std::vector<std::pair<long long, long long>>>& path,
+    std::vector<std::vector<Edge>>& edges, long long n, long long start,
+    long long t) {
+  std::vector<std::vector<long long>> dist(
+      n, std::vector<long long>(t + 1, kMaxSize));
+  dist[0][0] = 0;
+  std::set<Vec> vertexes;
+  vertexes.insert({dist[start][0], start, 0});
+
+  while (!vertexes.empty()) {
+    long long top = vertexes.begin()->id;
+    long long time = vertexes.begin()->time;
+    vertexes.erase(vertexes.begin());
+    for (auto curr_vert : edges[top]) {
+      long long cur_id = curr_vert.end;
+      long long cur_time = curr_vert.time;
+      long long cur_cost = curr_vert.cost;
+      if (time + cur_time <= t &&
+          dist[top][time] + cur_cost < dist[cur_id][time + cur_time]) {
+        vertexes.erase(
+            Vec(dist[cur_id][time + cur_time], cur_id, time + cur_time));
+        dist[cur_id][time + cur_time] = dist[top][time] + cur_cost;
+        path[cur_id][time + cur_time] = {top, time};
+        vertexes.insert(
+            Vec(dist[cur_id][time + cur_time], cur_id, time + cur_time));
+      }
+    }
+  }
+  return DijkstraRes(dist, t, n);
+}
+
+void PrintOfResult(const std::vector<long long>& res) {
+  std::cout << res.size() << '\n';
+  for (auto el : res) {
+    std::cout << el + 1 << ' ';
+  }
+}
+
+void PrepOfResult(
+    std::vector<std::vector<std::pair<long long, long long>>>& path,
+    long long n, long long last) {
+  std::vector<long long> res;
+  res.push_back(n - 1);
+  long long vertex_idx = path[n - 1][last].first;
+  long long vertex_time = path[n - 1][last].second;
+  res.push_back(vertex_idx);
+  while (vertex_idx != 0) {
+    auto pair_vert = path[vertex_idx][vertex_time];
+    vertex_idx = pair_vert.first;
+    vertex_time = pair_vert.second;
+    res.push_back(vertex_idx);
+  }
+  std::reverse(res.begin(), res.end());
+  PrintOfResult(res);
+}
+
+void EdgesInput(std::vector<std::vector<Edge>>& edges, long long m) {
+  long long start, end, cost, time;
+  for (long long i = 0; i < m; i++) {
+    std::cin >> start >> end >> cost >> time;
+    start--;
+    end--;
+    edges[start].push_back({end, cost, time});
+    edges[end].push_back({start, cost, time});
+  }
 }
 
 int main() {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
   std::cout.tie(nullptr);
-  long long* arr = new long long[1000000];
-  long long cnst = 29;
-  arr[0] = 1;
-  for (long long i = 1; i < 1000000; ++i) {
-    arr[i] = (arr[i - 1] * cnst) % (1000000000 + 7);
+  long long n, m, t;
+  std::cin >> n >> m >> t;
+  std::vector<std::vector<Edge>> edges(n);
+  EdgesInput(edges, m);
+  std::vector<std::vector<std::pair<long long, long long>>> path(
+      n, std::vector<std::pair<long long, long long>>(t + 1, {-1, -1}));
+  std::pair<long long, long long> result = Dijkstra(path, edges, n, 0, t);
+  if (result.second == kMaxSize) {
+    std::cout << -1;
+  } else {
+    std::cout << result.second << '\n';
+    PrepOfResult(path, n, result.first);
   }
-  AVLTree avl1;
-  AVLTree avl2;
-  long long n, q;
-  std::cin >> n;
-  std::string x, y;
-  for (int i = 0; i < n; ++i) {
-    std::cin >> x >> y;
-    avl1.Insert(StringToNumber(x, arr), y);
-    avl2.Insert(StringToNumber(y, arr), x);
-  }
-  std::cin >> q;
-  for (int i = 0; i < q; ++i) {
-    std::cin >> x;
-    long long ind = StringToNumber(x, arr);
-    std::string res = avl1.FindValueByKey(ind);
-    if (res != "-1") {
-      std::cout << res << std::endl;
-    } else {
-      std::cout << avl2.FindValueByKey(ind) << std::endl;
-    }
-  }
-  delete[] arr;
+  return 0;
 }
