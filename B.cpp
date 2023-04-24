@@ -1,224 +1,143 @@
+#include <algorithm>
 #include <iostream>
-
+#include <limits>
+#include <queue>
 #include <vector>
 
-#include <cmath>
+static constexpr long long kInfinity = std::numeric_limits<long long>::max();
 
-class AVLTree {
- public:
-  struct Node {
-    Node* left{nullptr};
-    Node* right{nullptr};
-    long long value;
-    unsigned char height{0};
-  };
+struct Edge {
+  long long from;
+  long long to;
+  long long flow;
+  long long capacity;
 
-  AVLTree() : root_(nullptr) {}
+  Edge(long long from, long long to, long long capacity)
+      : from(from), to(to), flow(0), capacity(capacity) {}
 
-  void Insert(long long value) { root_ = Insert(root_, value); }
-
-  ~AVLTree() { Clear(root_); }
-
-  void Clear() {
-    Clear(root_);
-    root_ = nullptr;
-  }
-
-  long long Find(long long value) {
-    long long res = (long long)pow(10, 9) + 1;
-    return Find(root_, value, res);
-  }
-
-  bool Find1(long long value) { return Find1(root_, value); }
-
-  void Erase(long long value) { root_ = Erase(root_, value); }
-
- private:
-  static Node* Erase(Node* node, long long value) {
-    if (node == nullptr) {
-      return node;
-    }
-    if (node->value == value) {
-      if (node->right == nullptr) {
-        Node* temp = node->left;
-        delete node;
-        return FixBalance(temp);
-      }
-      Node* right_min = FindMin(node->right);
-      node->right = UnlinkMin(node->right);
-      right_min->left = node->left;
-      right_min->right = node->right;
-      delete node;
-      return FixBalance(right_min);
-    }
-    if (value < node->value) {
-      node->left = Erase(node->left, value);
-    } else {
-      node->right = Erase(node->right, value);
-    }
-    return FixBalance(node);
-  }
-
-  static Node* FindMin(Node* node) {
-    if (node->left == nullptr) {
-      return node;
-    }
-    return FindMin(node->left);
-  }
-
-  static Node* UnlinkMin(Node* node) {
-    if (node->left == nullptr) {
-      return node->right;
-    }
-    node->left = UnlinkMin(node->left);
-    return FixBalance(node);
-  }
-
-  static bool Find1(Node* node, long long value) {
-    if (node == nullptr) {
-      return false;
-    }
-    if (node->value == value) {
-      return true;
-    }
-    if (value < node->value) {
-      return Find1(node->left, value);
-    }
-    return Find1(node->right, value);
-  }
-
-  static long long Find(Node* node, long long value, long long res) {
-    if (node == nullptr && res == (long long)pow(10, 9) + 1) {
-      return -1;
-    }
-    if (node == nullptr) {
-      return res;
-    }
-    if ((node->value >= value) && (res > node->value)) {
-      res = node->value;
-    }
-    if (value < node->value) {
-      return Find(node->left, value, res);
-    }
-    return Find(node->right, value, res);
-  }
-
-  static void Clear(Node* node) {
-    if (node->left != nullptr) {
-      Clear(node->left);
-    }
-    if (node->right != nullptr) {
-      Clear(node->right);
-    }
-    delete node;
-  }
-
-  static Node* Insert(Node* node, long long value) {
-    if (node == nullptr) {
-      Node* new_node = new Node;
-      new_node->value = value;
-      return new_node;
-    }
-    if (value <= node->value) {
-      node->left = Insert(node->left, value);
-    } else {
-      node->right = Insert(node->right, value);
-    }
-    return FixBalance(node);
-  }
-
-  static long long Height(Node* node) {
-    return node == nullptr ? 0 : static_cast<long long>(node->height);
-  }
-
-  static long long BalanceFactor(Node* node) {
-    return node == nullptr ? 0 : Height(node->right) - Height(node->left);
-  }
-
-  static void CalcHeight(Node* node) {
-    if (node == nullptr) {
-      return;
-    }
-    node->height = std::max(Height(node->left), Height(node->right)) + 1;
-  }
-
-  static Node* RightRotate(Node* p) {
-    Node* q = p->left;
-    p->left = q->right;
-    q->right = p;
-    CalcHeight(p);
-    CalcHeight(q);
-    return q;
-  }
-
-  static Node* LeftRotate(Node* q) {
-    Node* p = q->right;
-    q->right = p->left;
-    p->left = q;
-    CalcHeight(q);
-    CalcHeight(p);
-    return p;
-  }
-
-  static Node* FixBalance(Node* node) {
-    CalcHeight(node);
-    if (BalanceFactor(node) == 2) {
-      if (BalanceFactor(node->right) == -1) {
-        node->right = RightRotate(node->right);
-      }
-      return LeftRotate(node);
-    }
-    if (BalanceFactor(node) == -2) {
-      if (BalanceFactor(node->left) == 1) {
-        node->left = LeftRotate(node->left);
-      }
-      return RightRotate(node);
-    }
-    return node;
-  }
-
-  Node* root_;
+  Edge(long long from, long long to, long long flow, long long capacity)
+      : from(from), to(to), flow(flow), capacity(capacity) {}
 };
 
-long long InputTreatment(const char* cmd, AVLTree*& treap, char last_op,
-                         long long last_v) {
-  long long inserting_value, lval;
-  std::cin >> inserting_value;
-  lval = -1;
-  switch (cmd[0]) {
-    case '+':
-      if (last_op == '?') {
-        inserting_value = (last_v + inserting_value) % (long long)pow(10, 9);
-        if (!(treap->Find1(inserting_value))) {
-          treap->Insert(inserting_value);
-        }
-      } else {
-        if (!(treap->Find1(inserting_value))) {
-          treap->Insert(inserting_value);
+class Graph {
+ public:
+  Graph(size_t n) : graph_(n, std::vector<size_t>()) { pointer_.assign(n, 0); }
+
+  void AddEdge(long long from, long long to, long long capacity) {
+    edges_.emplace_back(from, to, capacity);
+    size_t edge_id = edges_.size() - 1;
+    edges_.emplace_back(to, from, 0);
+    size_t back_edge_id = edges_.size() - 1;
+    graph_[from].push_back(edge_id);
+    graph_[to].push_back(back_edge_id);
+  }
+
+  bool BFS(size_t start, size_t end) {
+    dist_.assign(graph_.size(), kInfinity);
+    std::queue<size_t> queue;
+    dist_[start] = 0;
+    queue.push(start);
+    while (!queue.empty() && dist_[end] == kInfinity) {
+      size_t vertex = queue.front();
+      queue.pop();
+      for (size_t i = 0; i < graph_[vertex].size(); ++i) {
+        size_t id = graph_[vertex][i];
+        if (dist_[edges_[id].to] == kInfinity &&
+            edges_[id].flow < edges_[id].capacity) {
+          queue.push(edges_[id].to);
+          dist_[edges_[id].to] = dist_[edges_[id].from] + 1;
         }
       }
-      break;
-    case '?':
-      lval = treap->Find(inserting_value);
-      std::cout << lval << std::endl;
+    }
+    return dist_[end] != kInfinity;
   }
-  return lval;
+
+  long long DFS(size_t vertex, size_t end, long long current_flow) {
+    if (current_flow <= 0) {
+      return 0;
+    }
+    if (vertex == end) {
+      return current_flow;
+    }
+    for (; pointer_[vertex] < static_cast<int>(graph_[vertex].size());
+         ++pointer_[vertex]) {
+      size_t to_id = graph_[vertex][pointer_[vertex]];
+      size_t to = edges_[to_id].to;
+      if (dist_[to] != dist_[vertex] + 1 ||
+          edges_[to_id].flow == edges_[to_id].capacity) {
+        continue;
+      }
+      long long flow = DFS(
+          to, end,
+          std::min(current_flow, edges_[to_id].capacity - edges_[to_id].flow));
+      if (flow > 0) {
+        edges_[to_id].flow += flow;
+        edges_[to_id ^ 1].flow -= flow;
+        return flow;
+      }
+    }
+    return 0;
+  }
+
+  long long DinicAlgo(size_t start, size_t end) {
+    long long flow = 0;
+    while (BFS(start, end)) {
+      long long delta = 0;
+      pointer_.assign(graph_.size(), 0);
+      do {
+        delta = DFS(start, end, kInfinity);
+        flow += delta;
+      } while (delta > 0);
+    }
+    return flow;
+  }
+
+  std::vector<Edge> edges_;
+
+ private:
+  std::vector<std::vector<size_t>> graph_;
+  std::vector<long long> dist_;
+  std::vector<int> pointer_;
+};
+
+void Solution() {
+  long long chn;
+  long long eng;
+  std::cin >> eng >> chn;
+  Graph gr(eng + chn + 2);
+  std::vector<std::pair<long long, long long>> edges;
+  for (long long i = 0; i < eng; ++i) {
+    long long from;
+    std::cin >> from;
+    if (from == 0) {
+      continue;
+    } else {
+      while (from != 0) {
+        gr.AddEdge(i + 1, from + eng, 1);
+        std::cin >> from;
+      }
+    }
+  }
+  for (int i = 0; i < eng; ++i) {
+    gr.AddEdge(0, i + 1, 1);
+  }
+  for (int i = 0; i < chn; ++i) {
+    gr.AddEdge(eng + i + 1, eng + chn + 1, 1);
+  }
+  std::cout << gr.DinicAlgo(0, eng + chn + 1) << '\n';
+  for (auto edge : gr.edges_) {
+    if (edge.flow != 0) {
+      if ((edge.from <= edge.to) && (edge.from != 0) &&
+          (edge.to != eng + chn + 1)) {
+        std::cout << edge.from << ' ' << edge.to - eng << '\n';
+      }
+    }
+  }
 }
 
 int main() {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);
   std::cout.tie(nullptr);
-  AVLTree* avl = new AVLTree();
-  long long n;
-  std::cin >> n;
-  char str[3];
-  char last_op = 'e';
-  long long last_value = -1;
-  for (long long i = 0; i < n; ++i) {
-    std::cin >> str;
-    last_value = InputTreatment(str, avl, last_op, last_value);
-    last_op = str[0];
-  }
-  delete avl;
+  Solution();
 }
