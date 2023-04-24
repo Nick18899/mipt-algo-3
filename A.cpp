@@ -1,156 +1,119 @@
+#include <algorithm>
 #include <iostream>
+#include <limits>
+#include <queue>
+#include <vector>
 
-class TreapSet {
-  struct Node {
-    Node(long long x1, long long y1) {
-      x = x1;
-      y = y1;
-      parent = nullptr;
-      left = nullptr;
-      right = nullptr;
-    }
+static constexpr int kInfinity = std::numeric_limits<int>::max();
 
-    long long x;
-    long long y;
-    Node* parent;
-    Node* left;
-    Node* right;
-  };
+enum { White, Grey, Black };
 
+struct Edge {
+  int from;
+  int to;
+  int flow;
+  int capacity;
+
+  Edge(int from, int to, int capacity)
+      : from(from), to(to), flow(0), capacity(capacity) {}
+
+  Edge(int from, int to, int flow, int capacity)
+      : from(from), to(to), flow(flow), capacity(capacity) {}
+};
+
+class Graph {
  public:
-  TreapSet() : root_(nullptr) {}
+  Graph(size_t n) : graph_(n, std::vector<size_t>()) {}
 
-  ~TreapSet() { Clear(root_); }
-
-  void CalcParentMin(Node* node) {
-    node->parent = parent_;
-    parent_->right = node;
-    parent_ = node;
+  void AddEdge(int from, int to, int capacity) {
+    edges_.emplace_back(from, to, capacity);
+    size_t edge_id = edges_.size() - 1;
+    edges_.emplace_back(to, from, 0);
+    size_t back_edge_id = edges_.size() - 1;
+    graph_[from].push_back(edge_id);
+    graph_[to].push_back(back_edge_id);
   }
 
-  void CalcParentMax(Node* node, long long value) {
-    Node* cp = parent_;
-    while ((cp != nullptr) && (cp->y > value)) {
-      cp = cp->parent;
-    }
-    if (cp == nullptr) {
-      node->parent = nullptr;
-      root_->parent = node;
-      node->left = root_;
-      root_ = node;
-    } else {
-      Node* right = cp->right;
-      right->parent = node;
-      node->parent = cp;
-      node->left = right;
-      cp->right = node;
-    }
-    parent_ = node;
-  }
-
-  void Insert(long long value, long long y) {
-    Node* node = new Node(value, y);
-    if (root_ == nullptr) {
-      node->parent = nullptr;
-      root_ = node;
-      parent_ = node;
-    } else {
-      if (parent_->y < y) {
-        CalcParentMin(node);
-      } else {
-        CalcParentMax(node, y);
+  bool BFS(size_t start, size_t end) {
+    dist_.assign(graph_.size(), kInfinity);
+    std::queue<size_t> queue;
+    dist_[start] = 0;
+    queue.push(start);
+    while (!queue.empty() && dist_[end] == kInfinity) {
+      size_t vertex = queue.front();
+      queue.pop();
+      for (size_t i = 0; i < graph_[vertex].size(); ++i) {
+        size_t id = graph_[vertex][i];
+        if (dist_[edges_[id].to] == kInfinity &&
+            edges_[id].flow < edges_[id].capacity) {
+          queue.push(edges_[id].to);
+          dist_[edges_[id].to] = dist_[edges_[id].from] + 1;
+        }
       }
     }
+    return dist_[end] != kInfinity;  // увы ниче не нашли!
   }
 
-  void DisplayTree() { return DisplayTree(root_); }
-
- private:
-  std::pair<Node*, Node*> Split(Node* node, long long key) {
-    if (node == nullptr) {
-      return {nullptr, nullptr};
-    }
-    if (key >= node->x) {
-      std::pair<TreapSet::Node*, TreapSet::Node*> p = Split(node->right, key);
-      TreapSet::Node* left = p.first;
-      TreapSet::Node* right = p.second;
-      node->right = left;
-      return {node, right};
-    }
-    std::pair<TreapSet::Node*, TreapSet::Node*> p = Split(node->left, key);
-    TreapSet::Node* left = p.first;
-    TreapSet::Node* right = p.second;
-    node->left = right;
-    return {left, node};
-  }
-
-  Node* Merge(Node* first, Node* second) {
-    if (first == nullptr) {
-      return second;
-    }
-    if (second == nullptr) {
-      return first;
-    }
-    if (first->y <= second->y) {
-      first->right = Merge(first->right, second);
-      first->right->parent = first;
-      return first;
-    }
-    second->left = Merge(first, second->left);
-    second->left->parent = second;
-    return second;
-  }
-
-  static long long GetParent(Node* node) {
-    if (node->parent == nullptr) {
+  int DFS(std::vector<char>& colors, size_t vertex, size_t end,
+          int current_flow) {
+    if (current_flow <= 0) {
       return 0;
     }
-    return node->parent->x;
-  }
-
-  void Clear(Node* node) {
-    if (node == nullptr) {
-      return;
+    if (vertex == end) {
+      return current_flow;
     }
-    Clear(node->left);
-    Clear(node->right);
-    delete node;
-  }
-
-  void DisplayTree(Node* node) {
-    if (node != nullptr) {
-      DisplayTree(node->left);
-      long long left = 0;
-      long long right = 0;
-      long long parent = GetParent(node);
-      if (node->left != nullptr) {
-        left = node->left->x;
+    colors[vertex] = Grey;
+    for (size_t to_id : graph_[vertex]) {
+      size_t to = edges_[to_id].to;
+      if (colors[to] == White && dist_[to] == dist_[vertex] + 1) {
+        int flow = DFS(colors, to, end,
+                       std::min(current_flow,
+                                edges_[to_id].capacity - edges_[to_id].flow));
+        if (flow > 0) {
+          edges_[to_id].flow += flow;
+          edges_[to_id ^ 1].flow -= flow;
+          colors[vertex] = Black;
+          return flow;
+        }
       }
-      if (node->right != nullptr) {
-        right = node->right->x;
-      }
-      std::cout << parent << ' ' << left << " " << right << '\n';
-      DisplayTree(node->right);
     }
+
+    colors[vertex] = Black;
+    return 0;
   }
 
-  Node* root_;
-  Node* parent_{nullptr};
+  int DinicAlgo(size_t start, size_t end) {
+    int flow = 0;
+    while (BFS(start, end)) {
+      int delta = 0;
+      do {
+        std::vector<char> colors(graph_.size(), White);
+        delta = DFS(colors, start, end, kInfinity);
+        flow += delta;
+      } while (delta > 0);
+    }
+    return flow;
+  }
+
+ private:
+  std::vector<Edge> edges_;
+  std::vector<std::vector<size_t>> graph_;
+  std::vector<int> dist_;
 };
 
 int main() {
-  std::ios_base::sync_with_stdio(false);
-  std::cin.tie(nullptr);
-  std::cout.tie(nullptr);
-  TreapSet* treap = new TreapSet();
-  long long n;
-  std::cin >> n;
-  long long x, y;
-  for (long long i = 0; i < n; ++i) {
-    std::cin >> x >> y;
-    treap->Insert(i + 1, y);
+  int num;
+  int edges;
+  std::cin >> num >> edges;
+  Graph gr(num);
+  for (int i = 0; i < edges; ++i) {
+    int from;
+    int to;
+    int capacity;
+    std::cin >> from >> to >> capacity;
+    --from;
+    --to;
+    gr.AddEdge(from, to, capacity);
   }
-  std::cout << "YES" << std::endl;
-  treap->DisplayTree();
-  delete treap;
+  std::cout << gr.DinicAlgo(0, num - 1) << ' ';
 }
